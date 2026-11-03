@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>নিরাপত্তা শাখার ডিউটি রোস্টার</title>
+<meta name="theme-color" content="#1d4ed8"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="ডিউটি রোস্টার">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: control-room console. Sticky app bar + tab rail on top; dashboard is a main column with a right-hand alert rail; the roster is a full-width sticky-header grid; print views are fixed A4 sheets. */
+:root{
+  --bg:#e9edf1; --panel:#ffffff; --panel2:#f3f6f9; --ink:#14202b; --muted:#566574; --line:#d1d9e1;
+  --brand:#0d5766; --brand-ink:#ffffff; --brand-soft:#d6ecf0;
+  --crit:#d3212f; --crit-bg:#fde2e5; --warn:#a85f00; --warn-bg:#fff0cf; --ok:#17713f; --ok-bg:#dcf2e5;
+  --j-bg:#e9e2f6; --j:#4a3578; --a-bg:#d6eafb; --a:#0a4875; --b-bg:#d4f0e0; --b:#14603a;
+  --c-bg:#2a306d; --c:#ffffff; --r-bg:#e4e8ec; --r:#566574; --l-bg:#ffdfc4; --l:#8a4003;
+  --k-bg:#fad5e2; --k:#951648; --x-bg:#e6d3c7; --x:#5a2c16; --o-bg:#d2ecf4; --o:#195870; --t-bg:#f0e3b8; --t:#6a5000;
+  --head:"Anek Bangla","Hind Siliguri","Noto Sans Bengali","Nirmala UI",system-ui,sans-serif;
+  --body:"Shonar Bangla","Hind Siliguri","Noto Sans Bengali","Nirmala UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --panel:#16202a; --panel2:#1b2733; --ink:#e5ecf2; --muted:#92a3b3; --line:#2b3948;
+  --brand:#38aec4; --brand-ink:#06232a; --brand-soft:#12353e;
+  --crit:#ff5a67; --crit-bg:#4a1a20; --warn:#f0b04c; --warn-bg:#40300f; --ok:#58cf8c; --ok-bg:#12382a;
+  --j-bg:#2e2547; --j:#cdbcf5; --a-bg:#12354f; --a:#9fd2f7; --b-bg:#12392a; --b:#9ae0b8;
+  --c-bg:#d9dcff; --c:#1a1f55; --r-bg:#26313c; --r:#9aabba; --l-bg:#4a2c12; --l:#ffc08a;
+  --k-bg:#4a1c32; --k:#ffaecb; --x-bg:#40291c; --x:#e5b99f; --o-bg:#123b49; --o:#9ad6ea; --t-bg:#40350f; --t:#efd57c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --panel:#16202a; --panel2:#1b2733; --ink:#e5ecf2; --muted:#92a3b3; --line:#2b3948;
+  --brand:#38aec4; --brand-ink:#06232a; --brand-soft:#12353e;
+  --crit:#ff5a67; --crit-bg:#4a1a20; --warn:#f0b04c; --warn-bg:#40300f; --ok:#58cf8c; --ok-bg:#12382a;
+  --j-bg:#2e2547; --j:#cdbcf5; --a-bg:#12354f; --a:#9fd2f7; --b-bg:#12392a; --b:#9ae0b8;
+  --c-bg:#d9dcff; --c:#1a1f55; --r-bg:#26313c; --r:#9aabba; --l-bg:#4a2c12; --l:#ffc08a;
+  --k-bg:#4a1c32; --k:#ffaecb; --x-bg:#40291c; --x:#e5b99f; --o-bg:#123b49; --o:#9ad6ea; --t-bg:#40350f; --t:#efd57c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;
+  padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--head);margin:0;text-wrap:balance}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+.app{max-width:1500px;margin:0 auto;padding-bottom:48px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--bg);padding:10px 0 6px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--bg)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:34px;height:34px;border-radius:8px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-family:var(--head);font-weight:800;font-size:13px;letter-spacing:.02em;flex:none}
+.brand h1{font-size:18px;font-weight:700;line-height:1.15}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;line-height:1.3}
+.btn:hover{background:var(--panel2)}
+.btn:focus-visible,.tab:focus-visible,.c:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.btn.pri{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.dng{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,var(--line))}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.dirty{font-size:12px;color:var(--warn);background:var(--warn-bg);border-radius:20px;padding:2px 10px;font-weight:600}
+.saved{font-size:12px;color:var(--ok);background:var(--ok-bg);border-radius:20px;padding:2px 10px;font-weight:600}
+input[type=text],input[type=date],input[type=month],input[type=number],select,textarea{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;margin-bottom:14px}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;white-space:nowrap;font-weight:500;color:var(--muted)}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=true]{color:var(--brand);border-bottom-color:var(--brand);font-weight:700}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+.panel h2{font-size:16px;font-weight:700;margin-bottom:8px}
+.sub{color:var(--muted);font-size:12.5px}
+.lbl{font-size:11.5px;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--crit);color:#fff;border-radius:8px;padding:9px 14px;margin-bottom:12px;font-weight:600;animation:bflash 1.2s infinite}
+.banner button{background:#fff;color:#a0111d;border:0;border-radius:6px;padding:4px 10px;font-weight:700;cursor:pointer}
+@keyframes bflash{0%,100%{filter:none}50%{filter:brightness(.78)}}
+@keyframes flash{0%,100%{background:var(--crit-bg);color:var(--crit)}50%{background:var(--crit);color:#fff}}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--brand)}100%{box-shadow:0 0 0 14px transparent}}
+@media (prefers-reduced-motion:reduce){.banner,.c.crit,.c.ping{animation:none!important}.c.crit{background:var(--crit)!important;color:#fff!important}}
+.chip{display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:1px 8px;border-radius:5px;font-weight:700;font-size:12.5px}
+.sh-j{background:var(--j-bg);color:var(--j)}.sh-a{background:var(--a-bg);color:var(--a)}.sh-b{background:var(--b-bg);color:var(--b)}
+.sh-c{background:var(--c-bg);color:var(--c)}.sh-r{background:var(--r-bg);color:var(--r)}.sh-l{background:var(--l-bg);color:var(--l)}
+.sh-k{background:var(--k-bg);color:var(--k)}.sh-x{background:var(--x-bg);color:var(--x)}.sh-o{background:var(--o-bg);color:var(--o)}.sh-t{background:var(--t-bg);color:var(--t)}
+table.g td.sh-j{background:var(--j-bg);color:var(--j)}table.g td.sh-a{background:var(--a-bg);color:var(--a)}table.g td.sh-b{background:var(--b-bg);color:var(--b)}table.g td.sh-c{background:var(--c-bg);color:var(--c)}table.g td.sh-r{background:var(--r-bg);color:var(--r)}table.g td.sh-l{background:var(--l-bg);color:var(--l)}table.g td.sh-k{background:var(--k-bg);color:var(--k)}table.g td.sh-x{background:var(--x-bg);color:var(--x)}table.g td.sh-o{background:var(--o-bg);color:var(--o)}table.g td.sh-t{background:var(--t-bg);color:var(--t)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel2)}
+.kpi b{display:block;font-family:var(--head);font-size:24px;line-height:1.1;font-weight:700}
+.kpi span{font-size:12px;color:var(--muted)}
+.bar2{height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.bar2>i{display:block;height:100%;background:var(--ok)}
+.bar2.short>i{background:var(--crit)}.bar2.over>i{background:var(--warn)}
+.slot{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.slot:last-child{border-bottom:0}
+.slot em{font-style:normal;color:var(--muted);font-size:12px}
+.vac{color:var(--crit);font-weight:700}
+.plab{padding:0 8px;border-radius:4px;font-weight:600;font-size:12.5px}
+.strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:5px}
+.dt{border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:3px 0;text-align:center;cursor:pointer;line-height:1.2;font-size:12px}
+.dt b{display:block;font-size:14px}
+.dt.ok{border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
+.dt.w{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+.dt.x{background:var(--crit-bg);border-color:var(--crit);color:var(--crit)}
+.dt.sel{outline:3px solid var(--brand);outline-offset:1px}
+.alist{max-height:560px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.al{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--panel2)}
+.al.crit{border-color:var(--crit);background:var(--crit-bg)}.al.warn{border-color:color-mix(in srgb,var(--warn) 55%,var(--line));background:var(--warn-bg)}
+.al .t{flex:1;min-width:0}
+.fchip{border:1px solid var(--line);background:var(--panel);border-radius:20px;padding:2px 10px;cursor:pointer;font-size:12.5px}
+.fchip[aria-pressed=true]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+/* roster grid */
+.gwrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel);max-height:calc(100vh - 210px);min-height:320px}
+table.g{border-collapse:separate;border-spacing:0;font-size:12px}
+table.g th,table.g td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;background:var(--panel)}
+table.g thead th{position:sticky;top:0;z-index:3;background:var(--panel2);font-weight:600;height:24px}
+table.g thead tr.r2 th{top:24px;font-weight:500;color:var(--muted);font-size:11px;height:18px}
+table.g thead tr.r3 th{top:42px;font-size:11px;height:18px;font-weight:500}
+table.g .stk{position:sticky;z-index:4;background:var(--panel2);text-align:left;padding:0 6px}
+table.g thead .stk{z-index:6}
+table.g .s1{left:0;min-width:78px;width:78px}
+table.g .s2{left:78px;min-width:120px;width:120px;border-right:2px solid var(--line)}
+td.c{min-width:30px;height:26px;cursor:pointer;font-weight:600;user-select:none}
+td.c.po{min-width:38px;font-weight:600;font-size:11.5px;color:var(--muted)}
+td.c.po[class*="sh-"]{filter:saturate(.9)}
+td.c.po.auto{font-style:italic;opacity:.75}
+td.c.po.cmd{font-weight:800}
+td.c:hover{box-shadow:inset 0 0 0 2px var(--brand)}
+td.c.crit{animation:flash 1.1s infinite;font-weight:800}
+td.c.warn{box-shadow:inset 0 0 0 2px var(--warn);background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--warn) 28%,transparent) 4px 8px)}
+td.c.ping{animation:ping 1s 3}
+table.g th.sel,table.g td.selc{outline:0;box-shadow:inset 0 -2px 0 var(--brand)}
+table.g thead th.sel{background:var(--brand-soft);color:var(--brand)}
+table.g tfoot td,table.g tfoot th{background:var(--panel2);font-weight:600;position:static}
+table.g tfoot .stk{z-index:4}
+td.under{background:var(--crit-bg)!important;color:var(--crit)}
+td.over{background:var(--warn-bg)!important;color:var(--warn)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:3px}
+.dot.x{background:var(--crit)}.dot.w{background:var(--warn)}
+.menu{position:fixed;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:8px;max-width:330px;max-height:70vh;overflow:auto}
+.menu .ttl{font-size:12px;color:var(--muted);margin-bottom:6px}
+.menu .opts{display:flex;flex-wrap:wrap;gap:4px}
+.menu .opt{border:1px solid var(--line);background:var(--panel2);border-radius:5px;padding:3px 9px;cursor:pointer;min-width:34px;font-weight:600}
+.menu .opt:hover{outline:2px solid var(--brand)}
+.menu .opt.cur{outline:2px solid var(--brand)}
+.menu .opt.gate1{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.menu .opt.gate2{background:var(--j-bg);color:var(--j);border:2px solid var(--j)}
+table.t{border-collapse:collapse;width:100%}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:middle}
+table.t th{font-size:12px;color:var(--muted);font-weight:600;background:var(--panel2)}
+.tw{overflow-x:auto}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:80;background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-weight:600;max-width:90vw}
+.modal{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px}
+.modal>div{background:var(--panel);border-radius:10px;padding:18px;max-width:420px;width:100%;border:1px solid var(--line)}
+.preview{overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px}
+
+:root{--bd:var(--line);--mu:var(--muted);--card:var(--panel);--tx:var(--ink)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+#view>.card,#view>.panel{margin-bottom:12px}
+input:not([type=checkbox]):not([type=radio]),select,textarea{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 8px;min-width:0}
+.btn.grn{background:var(--ok);color:#fff;border-color:var(--ok)}.btn.red{background:var(--crit);color:#fff;border-color:var(--crit)}
+.pt{border-collapse:collapse;width:100%}.pt th,.pt td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:middle}.pt th{font-size:12px;color:var(--muted);background:var(--panel2)}
+.mwrap{overflow:auto;border:1px solid var(--line);border-radius:8px}
+.badge{display:inline-block;border-radius:999px;padding:0 8px;font-size:12px;color:#fff}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-weight:600;opacity:0;transition:.3s;z-index:99;pointer-events:none}#toast.on{opacity:1}
+td.c.dup{outline:2px dashed var(--j);outline-offset:-2px}
+table.g tr.pin td{position:sticky;top:42px;z-index:2;box-shadow:inset 0 -2px 0 var(--brand)}table.g tr.pin td.stk{z-index:5}
+.gwrap{max-height:calc(100vh - 250px)}
+.sheet{background:#fff;color:#000;padding:10px;border:1px solid var(--line);max-width:210mm;margin:auto;font-size:11px;font-family:"Shonar Bangla","Hind Siliguri","Noto Sans Bengali",sans-serif;box-shadow:0 2px 14px rgba(0,0,0,.2)}
+.sh{width:100%;table-layout:fixed;border-collapse:collapse}.sh td,.sh th{border:1px solid #000;padding:1px 3px;text-align:left;vertical-align:middle;word-break:break-word;color:#000}
+.sh th{font-weight:600;text-align:center;background:#fff}.sh .c{text-align:center}.sh .ttl{font-size:16px;font-weight:700;text-align:center}.sh .ttl2{font-size:13px;font-weight:700;text-align:center}
+.sh tr.nb td{border:0}.lw{margin-bottom:6px}
+.sheet,.sheet *{font-family:"Shonar Bangla","SolaimanLipi","Noto Sans Bengali","Hind Siliguri",sans-serif!important;font-size:11pt!important}
+.sheet .ttl{font-size:16pt!important;line-height:1.3}
+#dlg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:100}#dlg[hidden]{display:none}
+.dlgbox{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:16px;max-width:560px;width:92%;max-height:90vh;overflow:auto}
+.cs-ok{color:var(--ok)}.cs-err{color:var(--crit)}
+@media print{
+ body *{visibility:hidden}.noprint,.bar,.tabs,#menu{display:none!important}
+ .pm-s .sheet,.pm-s .sheet *{visibility:visible}.pm-s .sheet{position:absolute;left:0;top:0;width:100%;border:0;padding:0;max-width:none;box-shadow:none}
+ .pm-month #monthPrint,.pm-month #monthPrint *{visibility:visible}.pm-month #monthPrint{position:absolute;left:0;top:0}
+ .pm-month .gwrap{max-height:none;overflow:visible;border:0}.pm-month table.g .stk,.pm-month table.g thead th,.pm-month table.g tr.pin td{position:static}
+ body{background:#fff!important;padding:0!important}
+ .pm-month table.g th,.pm-month table.g td,.pm-month #monthPrint{font-family:"Shonar Bangla","SolaimanLipi","Noto Sans Bengali",sans-serif;font-size:11pt}
+ td.c.crit{animation:none!important;background:#d3212f!important;color:#fff!important}
+ *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+<style id="pg"></style>
+</head>
+<body>
+<div class="app" id="app">
+ <header class="bar noprint"><div class="brand"><div class="logo">BIC</div><div><h1>নিরাপত্তা শাখার ডিউটি রোস্টার ম্যানেজমেন্ট সিস্টেম</h1><small>বসুন্ধরা ইন্ডাস্ট্রিয়াল কমপ্লেক্স লিমিটেড, মদনগঞ্জ</small></div></div><div class="flex flex-wrap items-center gap-2" id="barctl"></div></header>
+ <div id="banner" class="noprint"></div><nav class="tabs noprint" id="tabs" role="tablist"></nav><main id="view"></main>
+</div>
+<div id="menu"></div><div id="dlg" hidden></div><div id="toast"></div>
+<script>
+const SEED={"people":[{"id":"20024081","pf":"20024081","name":"এনামুল হক","full":"মোঃ এনামুল হক","desig":"জুনিয়র কর্মকর্তা"},{"id":"226001178","pf":"226001178","name":"আঃ কুদ্দুস","full":"মোঃ আঃ কুদ্দুস","desig":"নিরাপত্তা পরিদর্শক"},{"id":"2421183","pf":"2421183","name":"আব্দুল মান্নান","full":"মোঃ আব্দুল মান্নান","desig":"নিরাপত্তা সুপারভাইজার"},{"id":"4926124","pf":"4926124","name":"শাহদাত হোসেন","full":"মোঃ শাহদাত হোসেন","desig":"নিরাপত্তা প্রহরী"},{"id":"48251811","pf":"48251811","name":"মিজানুর রহমান","full":"মোঃ মিজানুর রহমান","desig":"নিরাপত্তা প্রহরী"},{"id":"48254338","pf":"48254338","name":"মামুনুর রশিদ","full":"মামুনুর রশিদ","desig":"নিরাপত্তা প্রহরী"},{"id":"4825238","pf":"4825238","name":"আফারুল ইসলাম","full":"মোঃ আফারুল ইসলাম","desig":"নিরাপত্তা প্রহরী"},{"id":"151163","pf":"151163","name":"গোলাম মোস্তফা","full":"মোঃ গোলাম মোস্তফা","desig":"নিরাপত্তা প্রহরী"},{"id":"242145","pf":"242145","name":"সুব্রত কুমার দত্ত","full":"সুব্রত কুমার দত্ত","desig":"নিরাপত্তা প্রহরী"},{"id":"4825871","pf":"4825871","name":"শহিদুল ইসলাম","full":"মোঃ শহিদুল ইসলাম","desig":"নিরাপত্তা প্রহরী"},{"id":"48251615","pf":"48251615","name":"ওমর ফারুক","full":"মোঃ ওমর ফারুক","desig":"নিরাপত্তা প্রহরী"},{"id":"48251665","pf":"48251665","name":"ইমামুল কবির","full":"মোঃ ইমামুল কবির","desig":"নিরাপত্তা প্রহরী"},{"id":"48251704","pf":"48251704","name":"নান্নু শেখ","full":"মোঃ নান্নু শেখ","desig":"নিরাপত্তা প্রহরী"},{"id":"48252115","pf":"48252115","name":"মিঠু হাওলাদার","full":"মোঃ মিঠু হাওলাদার","desig":"নিরাপত্তা প্রহরী"},{"id":"48252891","pf":"48252891","name":"এরশাদ আলী","full":"মোঃ এরশাদ আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48253005","pf":"48253005","name":"রেজোয়ান ইসলাম","full":"মোঃ রেজোয়ান ইসলাম","desig":"নিরাপত্তা প্রহরী"},{"id":"48254096","pf":"48254096","name":"সুমন মিয়া","full":"মোঃ সুমন মিয়া","desig":"নিরাপত্তা প্রহরী"},{"id":"48254252","pf":"48254252","name":"বাবর আলী","full":"মোঃ বাবর আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48255238","pf":"48255238","name":"কাশেম আলী","full":"মোঃ কাশেম আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48255241","pf":"48255241","name":"শ্রী জীবন কুমার","full":"শ্রী জীবন কুমার","desig":"নিরাপত্তা প্রহরী"},{"id":"48255591","pf":"48255591","name":"নয়ন আলী","full":"মোঃ নয়ন আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48256714","pf":"48256714","name":"মনজুরুল","full":"মোঃ মঞ্জুরুল ইসলাম","desig":"নিরাপত্তা প্রহরী"},{"id":"48257111","pf":"48257111","name":"মি. প্রশান্ত মার্ডি","full":"মি. প্রশান্ত মার্ডি","desig":"নিরাপত্তা প্রহরী"},{"id":"48257114","pf":"48257114","name":"দেলোয়ার","full":"মোঃ দেলোয়ার হোসেন","desig":"নিরাপত্তা প্রহরী"},{"id":"48257164","pf":"48257164","name":"মোস্তাক হোসেন","full":"মোঃ মুস্তাক হোসাইন","desig":"নিরাপত্তা প্রহরী"},{"id":"48257170","pf":"48257170","name":"শামিম সরকার","full":"মোঃ শামিম সরকার","desig":"নিরাপত্তা প্রহরী"},{"id":"48257426","pf":"48257426","name":"সবুজ আলী","full":"মোঃ সবুজ আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48257482","pf":"48257482","name":"মিলন আলী","full":"মোঃ মিলন আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48257866","pf":"48257866","name":"বদরুদ্দোজা","full":"মোঃ বদরুদ্দোজা","desig":"নিরাপত্তা প্রহরী"},{"id":"48257960","pf":"48257960","name":"আক্তারুল","full":"মোঃ আক্তারুল ইসলাম","desig":"নিরাপত্তা প্রহরী"},{"id":"48258044","pf":"48258044","name":"ওয়াহিদ আলী","full":"মোঃ ওয়াহিদ আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48259310","pf":"48259310","name":"আক্কাস আলী","full":"মোঃ আক্কাস আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48259513","pf":"48259513","name":"সুজন আলী","full":"মোঃ সুজন আলী","desig":"নিরাপত্তা প্রহরী"},{"id":"48259573","pf":"48259573","name":"আতিকুল ইসলাম","full":"মোঃ আতিকুল ইসলাম","desig":"নিরাপত্তা প্রহরী"},{"id":"20024090","pf":"20024090","name":"রনি মিয়া","full":"মোঃ রনি মিয়া","desig":"নিরাপত্তা প্রহরী"},{"id":"20024109","pf":"20024109","name":"সোহানুর রহমান","full":"মোঃ সোহানুর রহমান","desig":"নিরাপত্তা প্রহরী"},{"id":"26000085","pf":"26000085","name":"ইব্রাহিম খলিল","full":"ইব্রাহিম খলিল","desig":"নিরাপত্তা প্রহরী"},{"id":"26000086","pf":"26000086","name":"বিপ্লব হোসেন","full":"মোঃ বিপ্লব হোসেন","desig":"নিরাপত্তা প্রহরী"},{"id":"26000130","pf":"26000130","name":"সোহেল রানা","full":"মোঃ সোহেল রানা","desig":"নিরাপত্তা প্রহরী"},{"id":"26000131","pf":"26000131","name":"পারভেজ মিয়া","full":"মোঃ পারভেজ মিয়া","desig":"নিরাপত্তা প্রহরী"}],"cmd":["226001178","2421183","4926124","48251811","48254338","4825238","151163","242145","4825871","48251615"],"inch":"20024081","acting":"226001178","posts":{"এ":["কমান্ডার (গেট-০১)","কমান্ডার (গেট-০২)","০১ নং পোষ্ট","০২ নং পোষ্ট","০৩ নং পোষ্ট","০৬ নং পোষ্ট","০৯ নং পোষ্ট","১১ নং পোষ্ট","১৫ নং পোষ্ট"],"বি":["কমান্ডার (গেট-০১)","কমান্ডার (গেট-০২)","০১ নং পোষ্ট","০২ নং পোষ্ট","০৩ নং পোষ্ট","০৬ নং পোষ্ট","০৯ নং পোষ্ট","১১ নং পোষ্ট","১৫ নং পোষ্ট"],"সি":["কমান্ডার (গেট-০১)","কমান্ডার (গেট-০২)","০১ নং পোষ্ট","০২ নং পোষ্ট","০৩ নং পোষ্ট","০৫ নং পোষ্ট","০৬ নং পোষ্ট","০৮ নং পোষ্ট","০৯ নং পোষ্ট","১১ নং পোষ্ট","১৩ নং পোষ্ট","১৫ নং পোষ্ট","প্রজেক্ট টহল","০৪ নং পোষ্ট","১০ নং পোষ্ট"],"জে":["অফিস ডিউটি"]},"months":{"2026-11":{"20024081":[["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["বিশ্রাম",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["বিশ্রাম",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["বিশ্রাম",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["জে",""],["বিশ্রাম",""]],"226001178":[["এ",""],["এ",""],["এ",""],["এ",""],["বিশ্রাম",""],["বি",""],["এ",""],["এ",""],["এ",""],["এ",""],["এ",""],["বিশ্রাম",""],["বি",""],["এ",""],["এ",""],["এ",""],["এ",""],["এ",""],["বিশ্রাম",""],["বি",""],["এ",""],["এ",""],["এ",""],["এ",""],["এ",""],["বিশ্রাম",""],["বি",""],["এ",""],["এ",""],["এ",""]],"2421183":[["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""]],"4926124":[["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""]],"48251811":[["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""]],"48254338":[["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""]],"4825238":[["বি",""],["সি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""]],"151163":[["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""]],"242145":[["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""]],"4825871":[["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""]],"48251615":[["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""]],"48251665":[["বিশ্রাম",""],["সি",""],["সি",""],["বি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""]],"48251704":[["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""]],"48252115":[["এ",""],["বিশ্রাম",""],["সি",""],["সি",""],["বি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""]],"48252891":[["এ",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""]],"48253005":[["সি",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""]],"48254096":[["বি",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""]],"48254252":[["সি",""],["বি",""],["বিশ্রাম",""],["এ",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["",""]],"48255238":[["সি",""],["বি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""]],"48255241":[["এ",""],["এ",""],["সি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""]],"48255591":[["সি",""],["বি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""]],"48256714":[["সি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""]],"48257111":[["ছুটি",""],["ছুটি",""],["ছুটি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""]],"48257114":[["বি",""],["বিশ্রাম",""],["এ",""],["সি",""],["বি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""]],"48257164":[["সি",""],["সি",""],["বি",""],["এ",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""]],"48257170":[["বিশ্রাম",""],["সি",""],["সি",""],["বি",""],["এ",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""]],"48257426":[["ছুটি",""],["ছুটি",""],["ছুটি",""],["সি",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""]],"48257482":[["এ",""],["এ",""],["বি",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""]],"48257866":[["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""]],"48257960":[["বি",""],["এ",""],["এ",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""]],"48258044":[["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""]],"48259310":[["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""]],"48259513":[["সি",""],["সি",""],["বি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""]],"48259573":[["এ",""],["সি",""],["সি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""]],"20024090":[["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""]],"20024109":[["বি",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""]],"26000085":[["এ",""],["সি",""],["বি",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""]],"26000086":[["ছুটি",""],["ছুটি",""],["ছুটি",""],["সি",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""]],"26000130":[["ছুটি",""],["সি",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""]],"26000131":[["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""],["বি",""],["এ",""],["সি",""],["বি",""],["এ",""],["বিশ্রাম",""],["সি",""]]}},"leaves":[],"rest":{"26000085":6,"48257960":4,"48259573":6,"151163":2,"48257164":6,"4926124":4,"20024090":3,"48257482":3,"48254096":1,"4825871":0,"48259310":2,"48254252":2,"48257866":3,"48256714":4,"48251811":6,"48251704":2,"2421183":3,"48257170":0,"48259513":5,"48252115":1,"48251615":1,"4825238":5,"48255238":5,"226001178":4,"48252891":2,"26000130":2,"48254338":5,"26000131":0,"48251665":0,"48257114":1,"48255591":5,"242145":3,"48255241":6,"48258044":3,"20024109":1,"48253005":0,"48257111":6,"48257426":4,"26000086":4,"20024081":1},"pm":[["০১","০১ নং গেট"],["০২","০২ নং মেইন গেট"],["০৩","প্যাকিং হাউজ এলাকা"],["০৪","স্লাগ শেডের দক্ষিণে"],["০৫","বার্জ-০১"],["০৬","বার্জ-০২ (দক্ষিণ-পশ্চিম কর্ণার)"],["০৭","ই-ক্রেন নদী এলাকা"],["০৮","মিনি গেট (ষ্টোর এলাকা)"],["০৯","নদীর পার এলাকা (পশ্চিম কর্ণার)"],["১০","অটোমোবাইল ওয়ার্কশপের পিছনে"],["১১","ক্লিংকার সাইলো-০২ এর পাশে"],["১২","ক্লিংকার সাইলো-০৩ এর পাশে"],["১৩","ইলেক্ট্রিক অফিসের পিছন পাশে"],["১৫","স্টাফ কোয়াটার-০১ গেট"],["১৬","স্টাফ কোয়াটার-০৩"],["১৭","স্টাফ কোয়াটার-০২ গেট"]],"ot":{}};
+const LS='bic_roster_v1';
+const BN='০১২৩৪৫৬৭৮৯',bn=n=>String(n).replace(/\d/g,d=>BN[d]);
+const WD=['রবি','সোম','মঙ্গল','বুধ','বৃহ','শুক্র','শনি'];
+const MN=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+const SHIFTS=[['','—','·','x0'],['এ','এ শিফট','এ','a'],['বি','বি শিফট','বি','b'],['সি','সি শিফট','সি','c'],['জে','জে (জেনারেল)','জে','j'],['বিশ্রাম','বিশ্রাম','রে','r'],['ছুটি','ছুটি','ছু','l'],['অসু:','অসুস্থ','অ','k'],['অনু:','অনুপস্থিত','অন','x'],['আউট','আউটস্টেশন','আউ','o']];
+const SC={},SS={};SHIFTS.forEach(x=>{SC[x[0]]=x[3];SS[x[0]]=x[2]});
+const DUTY=['এ','বি','সি','জে'];
+let S=load()||JSON.parse(JSON.stringify(SEED));
+let M='2026-11',TAB='dash',D=null,DS='s2';
+migrate();
+function migrate(){S.ot=S.ot||{};S.pm=S.pm||SEED.pm;S.people.forEach(p=>{const q=SEED.people.find(x=>x.id===p.id);p.desig=p.desig||(q?q.desig:'নিরাপত্তা প্রহরী');p.full=p.full||(q?q.full:p.name)})}
+const F={q:'',sh:'',cmd:false,bad:false,wd:'',min:'',ls:''};
+const ppl=()=>[...S.people].sort((a,b)=>(b.id===S.inch)-(a.id===S.inch));
+const nrm=s=>String(s).replace(/[০-৯]/g,c=>BN.indexOf(c)).toLowerCase();
+const pn=p=>p.full||p.name;
+function fmatch(id){const p=S.people.find(x=>x.id===id);if(!p)return false;if(id===S.inch)return true;const q=nrm(F.q).trim();if(q&&!nrm(p.name+' '+(p.full||'')+' '+p.pf).includes(q))return false;if(F.cmd&&!S.cmd.includes(id))return false;return true}
+function fpeople(){const bad=F.bad?new Set(viol().map(x=>x.id)):null;const R=rows();return ppl().filter(p=>fmatch(p.id)&&(!bad||bad.has(p.id)||p.id===S.inch)&&(!F.sh||p.id===S.inch||R[p.id][D][0]===F.sh))}
+function fbar(k){let x='';
+ if(k==='month')x=`<select data-f="sh"><option value="">সব শিফট (নির্বাচিত দিনে)</option>${SHIFTS.slice(1).map(s=>`<option value="${s[0]}"${F.sh===s[0]?' selected':''}>${s[1]}</option>`).join('')}</select><label><input type="checkbox" data-f="bad"${F.bad?' checked':''}> শুধু ভুল আছে এমন</label>`;
+ if(k==='rest')x=`<select data-f="wd"><option value="">সব বার</option>${['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'].map((n,i)=>`<option value="${i}"${F.wd===String(i)?' selected':''}>${n}বার</option>`).join('')}</select>`;
+ if(k==='leave')x=`<select data-f="ls">${[['','ছুটি শেষ: বেশি দিন আগে → কম (ডিফল্ট)'],['asc','ছুটি শেষ: কম দিন আগে → বেশি'],['az','নাম A → Z'],['za','নাম Z → A'],['pf','পিএফ নং']].map(o=>`<option value="${o[0]}"${F.ls===o[0]?' selected':''}>${o[1]}</option>`).join('')}</select><label>ছুটি শেষ হয়েছে কমপক্ষে <input type="number" min="0" data-f="min" value="${F.min}" style="width:60px"> দিন আগে</label>`;
+ return`<div class="noprint flex flex-wrap items-center gap-2 my-2 card"><b>ফিল্টার:</b><input data-f="q" value="${F.q}" placeholder="🔍 নাম/পিএফ (এন্টার চাপুন)" size="18"><label><input type="checkbox" data-f="cmd"${F.cmd?' checked':''}> শুধু কমান্ডার</label>${x}<button class="btn" data-fclr="1">✕ মুছুন</button><span class="text-xs" style="color:var(--mu)">সার্বিক ইনচার্জ সব সময় উপরে থাকেন</span></div>`}
+function load(){try{return JSON.parse(localStorage.getItem(LS))}catch(e){return null}}
+let st,dirty=false,AF='all',menuCtx=null;function save(manual){clearTimeout(st);const f=()=>{try{localStorage.setItem(LS,JSON.stringify(S));dirty=false;queueCloud();renderBar();toast(manual?'সংরক্ষিত হয়েছে ✓':'অটো-সেভ ✓')}catch(e){toast('সংরক্ষণ ব্যর্থ হয়েছে')}};manual?f():st=setTimeout(f,500)}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1400)}
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,'0');
+const ym=()=>M.split('-').map(Number);
+const dm=()=>{const[y,m]=ym();return new Date(y,m,0).getDate()};
+const wdOf=d=>{const[y,m]=ym();return new Date(y,m-1,d+1).getDay()};
+const isoD=d=>{const[y,m]=ym();return `${y}-${pad(m)}-${pad(d+1)}`};
+const pName=id=>(S.people.find(p=>p.id===id)||{name:'?'}).name;
+const pPf=id=>(S.people.find(p=>p.id===id)||{pf:''}).pf;
+function rows(){const n=dm();const R=S.months[M]=S.months[M]||{};S.people.forEach(p=>{let r=R[p.id]=R[p.id]||[];while(r.length<n)r.push(['','']);});return R}
+function shortP(p){if(!p)return'';if(p.includes('গেট-০১'))return'ক১';if(p.includes('গেট-০২'))return'ক২';const m=p.match(/([০-৯]+) নং/);if(m)return m[1];if(p.includes('টহল'))return'টহ';if(p.includes('ইনচার্জ'))return'ইন';return p.slice(0,2)}
+const isG=p=>p.includes('গেট-');
+function allPosts(){const s=new Set(['ইনচার্জ']);['সি','এ','বি','জে'].forEach(k=>(S.posts[k]||[]).forEach(p=>s.add(p)));return[...s]}
+function viol(){const R=rows(),out=[];S.people.forEach(p=>R[p.id].forEach((c,d)=>{if(d&&R[p.id][d-1][0]==='সি'&&c[0]==='এ')out.push({id:p.id,d})}));return out}
+function warns(){const R=rows(),w=new Set();S.people.forEach(p=>{const r=R[p.id];r.forEach((c,d)=>{if(c[0]==='বিশ্রাম'){if(d&&!['এ','বিশ্রাম','ছুটি'].includes(r[d-1][0]))w.add(p.id+'|'+d);if(d+1<r.length&&!['সি','বিশ্রাম','ছুটি'].includes(r[d+1][0]))w.add(p.id+'|'+(d+1))}})});return w}
+function dupMap(){const R=rows(),m={};S.people.forEach(p=>R[p.id].forEach((c,d)=>{if(c[1]&&!c[1].includes('টহল')&&DUTY.includes(c[0])){const k=d+'|'+c[0]+'|'+c[1];m[k]=(m[k]||0)+1}}));return m}
+function isOff(id,d){return!DUTY.includes(rows()[id][d][0])}
+function inchargeOf(sh,d){const R=rows();if(R[S.inch]&&R[S.inch][d][0]===sh)return{id:S.inch,acting:false};if(R[S.inch]&&DUTY.includes(R[S.inch][d][0]))return null;if(R[S.acting]&&R[S.acting][d][0]===sh)return{id:S.acting,acting:true};return null}
+function shuf(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function autoDay(d){const R=rows();['এ','বি','সি','জে'].forEach(sh=>{let pp=S.people.filter(p=>R[p.id][d][0]===sh);pp.forEach(p=>R[p.id][d][1]='');
+ const inc=pp.find(p=>p.id===S.inch);if(inc){R[inc.id][d][1]='ইনচার্জ';pp=pp.filter(p=>p!==inc)}
+ if(sh==='জে')return;
+ const list=S.posts[sh]||[],gates=list.filter(isG),ng=list.filter(x=>!isG(x));
+ const cm=S.cmd.map(id=>pp.find(p=>p.id===id)).filter(Boolean),cq=[...cm],used=new Set();
+ gates.forEach(g=>{const p=cq.shift();if(p){R[p.id][d][1]=g;used.add(g)}});
+ const rest=shuf([...cq,...pp.filter(p=>!cm.includes(p))]);
+ const xn=Math.min(sh==='সি'?3:0,ng.length),req=shuf(ng.slice(0,ng.length-xn)),ex=ng.slice(ng.length-xn);
+ const q=[...req,...ex,...gates.filter(g=>!used.has(g))];
+ rest.forEach((p,i)=>R[p.id][d][1]=q[i]||'')})}
+function touch(){dirty=true;save();render()}
+/* ---------- views ---------- */
+const TABS=[['dash','ড্যাশবোর্ড'],['month','মাসিক রোস্টার'],['daily','দৈনিক পোস্ট শিট'],['rest','সাপ্তাহিক বিশ্রাম'],['leave','ছুটির হিসাব'],['mgmt','ম্যানেজমেন্ট']];
+const reqOf=sh=>Math.max(0,(S.posts[sh]||[]).length-(sh==='সি'?3:0));
+function renderBar(){const[y,m]=ym();$('barctl').innerHTML=`<button class="btn" id="pm" aria-label="আগের মাস">◀</button><b>${MN[m-1]} ${bn(y)}</b><button class="btn" id="nm" aria-label="পরের মাস">▶</button>${dirty?'<span class="dirty">অসংরক্ষিত পরিবর্তন</span>':'<span class="saved">সংরক্ষিত</span>'}<button class="btn pri" id="saveBtn" title="Ctrl+S">💾 সেভ / সংরক্ষণ</button><button class="btn" id="xl">📊 এক্সেল</button><button class="btn" id="pdfM">🖨 মাসিক</button><button class="btn" id="pdfS2">🖨 ২য় কাজ</button><button class="btn" id="pdfS3">🖨 ৩য় কাজ</button><button class="btn" id="cloudBtn" title="ক্লাউড সিঙ্ক সেটিংস">${cloudLabel()}</button><button class="btn" id="thm" aria-label="থিম পরিবর্তন">◐</button>`}
+function renderBanner(){const n=alerts().filter(a=>a.lv==='crit').length;$('banner').innerHTML=n?`<div class="banner" role="alert"><span>⚠ ${bn(n)}টি নিয়ম লঙ্ঘন: সি শিফটের পরদিন এ শিফট পড়েছে</span><button data-jf="1">দেখুন</button></div>`:''}
+function alerts(){const R=rows(),out=[],n=dm();
+ viol().forEach(x=>out.push({lv:'crit',kind:'rule',d:x.d,id:x.id,msg:`${pName(x.id)}: ${bn(x.d)} তারিখ সি → ${bn(x.d+1)} তারিখ এ (নিয়ম লঙ্ঘন)`}));
+ warns().forEach(k=>{const[id,d]=k.split('|');out.push({lv:'warn',kind:'rule',d:+d,id,msg:`${pName(id)}: ${bn(+d+1)} তারিখ — বিশ্রামের আগের দিন এ, পরের দিন সি রাখুন`})});
+ for(let d=0;d<n;d++)['এ','বি','সি'].forEach(sh=>{const c=S.people.filter(p=>R[p.id][d][0]===sh).length;if(c<reqOf(sh))out.push({lv:'warn',kind:'staff',d,msg:`${bn(d+1)} তারিখ ${sh}-শিফটে জনবল কম (${bn(c)}/${bn(reqOf(sh))})`})});
+ const ig=new Set(S.ign||[]);return out.filter(a=>!ig.has(a.msg)).sort((a,b)=>(a.lv==='crit'?0:1)-(b.lv==='crit'?0:1)||a.d-b.d)}
+function render(){const[y,m]=ym();rows();
+ if(D===null||D>=dm())D=(()=>{const t=new Date();return(t.getFullYear()===y&&t.getMonth()+1===m)?t.getDate()-1:0})();
+ renderBar();renderBanner();
+ $('tabs').innerHTML=TABS.map(t=>`<button class="tab" role="tab" data-t="${t[0]}" aria-selected="${TAB===t[0]}">${t[1]}</button>`).join('');
+ const v=$('view'),sx=v.querySelector('.gwrap'),sl=sx?sx.scrollLeft:0,stp=sx?sx.scrollTop:0;
+ v.innerHTML=({dash:dashV,month:monthV,daily:dailyV,rest:restV,leave:leaveV,mgmt:mgmtV})[TAB]();
+ const nx=v.querySelector('.gwrap');if(nx){nx.scrollLeft=sl;nx.scrollTop=stp}}
+function dashV(){const d=D,R=rows(),n=dm(),A=alerts(),cnt=c=>S.people.filter(p=>R[p.id][d][0]===c).length;
+ const mp=S.people.find(p=>p.id===S.inch),ac=S.people.find(p=>p.id===S.acting),on=p=>p&&DUTY.includes(R[p.id][d][0]);
+ const ic=on(mp)?`<b>${mp.name}</b><div class="sub">সার্বিক নিরাপত্তা ইনচার্জ · ${R[mp.id][d][0]}-শিফটে ডিউটিরত</div>`:on(ac)?`<b>${ac.name}</b> <span class="chip sh-l">ভারপ্রাপ্ত ইনচার্জ</span><div class="sub">${mp?mp.name:''} আজ ${mp&&R[mp.id][d][0]?R[mp.id][d][0]:'অনির্ধারিত'}, তাই ভারপ্রাপ্ত ইনচার্জ দায়িত্বে</div>`:`<b style="color:var(--crit)">কোনো ইনচার্জ নেই</b><div class="sub">সার্বিক ও ভারপ্রাপ্ত ইনচার্জ দুজনই ডিউটিতে নেই</div>`;
+ const duty=DUTY.reduce((a,c)=>a+cnt(c),0);
+ const kp=[['মোট ডিউটি',duty],['বিশ্রাম',cnt('বিশ্রাম')],['ছুটি',cnt('ছুটি')],['অসুস্থ',cnt('অসু:')],['অনুপস্থিত',cnt('অনু:')],['আউটস্টেশন',cnt('আউট')],['অনির্ধারিত',cnt('')],['মোট জনবল',S.people.length]];
+ const panels=['এ','বি','সি'].map(sh=>{const k=SC[sh],pp=S.people.filter(p=>R[p.id][d][0]===sh),rq=reqOf(sh),pct=Math.min(100,Math.round(pp.length/Math.max(1,rq)*100)),cls=pp.length<rq?'short':pp.length>rq?'over':'',list=S.posts[sh]||[],xs=sh==='সি'?3:0;
+  const slots=list.map((po,i)=>{const w=pp.filter(p=>R[p.id][d][1]===po);return`<div class="slot"><span class="sh-${k} plab">${po}</span>${w.length?`<span>${w.map(p=>p.name).join(', ')}</span>`:(i>=list.length-xs?'<span class="sub">—</span>':'<span class="vac">শূন্য</span>')}</div>`}).join('');
+  const ex=pp.filter(p=>!list.includes(R[p.id][d][1]));
+  return`<div class="panel"><div class="flex items-center justify-between gap-2"><div class="flex items-center gap-2"><span class="chip sh-${k}">${sh}</span><h2 style="margin:0">${sh}-শিফট</h2></div><b>${bn(pp.length)}/${bn(rq)}${sh==='সি'?'+':''}</b></div><div class="bar2 ${cls} my-2"><i style="width:${pct}%"></i></div>${slots}${ex.length?`<div class="lbl mt-2">অতিরিক্ত / পোস্ট নির্ধারিত নয়</div>${ex.map(p=>`<div class="slot"><span class="sh-${k} plab">${R[p.id][d][1]||'নির্ধারিত নয়'}</span><span>${p.name}</span></div>`).join('')}`:''}</div>`}).join('');
+ const jp=S.people.filter(p=>R[p.id][d][0]==='জে');
+ const jpanel=`<div class="panel"><div class="flex items-center gap-2"><span class="chip sh-j">জে</span><h2 style="margin:0">জেনারেল শিফট</h2><b class="ml-auto">${bn(jp.length)}</b></div>${jp.map(p=>`<div class="slot"><span class="sh-j plab">${R[p.id][d][1]||'—'}</span><span>${p.name}</span></div>`).join('')||'<div class="sub mt-1">কেউ নেই</div>'}</div>`;
+ const dx=new Set(A.filter(a=>a.lv==='crit').map(a=>a.d)),dw=new Set(A.filter(a=>a.lv==='warn').map(a=>a.d));
+ const strip=Array.from({length:n},(_,i)=>`<button class="dt ${dx.has(i)?'x':dw.has(i)?'w':'ok'} ${i===d?'sel':''}" data-day="${i}" title="${WD[wdOf(i)]}বার"><b>${bn(i+1)}</b>${WD[wdOf(i)]}</button>`).join('');
+ const fl=A.filter(a=>AF==='all'||(AF==='crit'&&a.lv==='crit')||(AF==='rule'&&a.kind==='rule'&&a.lv==='warn')||(AF==='staff'&&a.kind==='staff'));
+ const al=fl.length?fl.slice(0,150).map(a=>`<div class="al ${a.lv}"><div class="t">${a.msg}</div><div class="flex gap-1 shrink-0"><button class="btn sm" ${a.id?`data-jump="${a.id}|${a.d}"`:`data-day="${a.d}"`}>${a.id?'যান':'দিন'}</button><button class="btn sm" data-ign="${a.msg}" title="এই সতর্কতাটি তালিকা থেকে সরান">এড়িয়ে যান</button></div></div>`).join('')+(fl.length>150?`<div class="sub">আরও ${bn(fl.length-150)}টি আছে</div>`:''):'<div class="sub" style="padding:10px 0">এই ফিল্টারে কোনো সতর্কতা নেই।</div>';
+ const fc=[['all','সব'],['crit','জরুরি'],['rule','নিয়ম পরামর্শ'],['staff','জনবল']].map(([k,l])=>`<button class="fchip" data-af="${k}" aria-pressed="${AF===k}">${l}</button>`).join('');
+ return`<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]"><div class="flex flex-col gap-4 min-w-0">
+ <div class="panel flex flex-wrap items-center justify-between gap-3"><div class="flex items-center gap-2"><button class="btn" data-dstep="-1" aria-label="আগের দিন">◀</button><div><h2 style="margin:0;font-size:20px">${WD[wdOf(d)]}বার, ${bn(d+1)} ${MN[ym()[1]-1]} ${bn(ym()[0])}</h2><div class="sub">দৈনিক জনবল ও পোস্ট বণ্টন</div></div><button class="btn" data-dstep="1" aria-label="পরের দিন">▶</button><input type="date" id="dsel" value="${isoD(d)}"></div><div style="min-width:200px;flex:1;max-width:420px">${ic}</div></div>
+ <div class="kpis">${kp.map(([l,v])=>`<div class="kpi"><b>${bn(v)}</b><span>${l}</span></div>`).join('')}</div>
+ <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">${panels}${jpanel}</div>
+ <div class="panel"><h2>মাসের দিনসমূহ</h2><div class="strip">${strip}</div><div class="sub mt-2">সবুজ = ঠিক, হলুদ = পরামর্শ, লাল = নিয়ম লঙ্ঘন</div></div></div>
+ <aside class="panel" style="align-self:start"><h2>সতর্কতা ও পরামর্শ (${bn(A.length)})</h2><div class="flex flex-wrap gap-1 mb-2">${fc}</div><div class="alist">${al}</div>${(S.ign||[]).length?`<button class="btn sm mt-2" data-ignclr="1">↺ এড়িয়ে যাওয়া ${bn(S.ign.length)}টি ফিরিয়ে আনুন</button>`:''}</aside></div>
+ <div class="panel mt-3 sub"><b>বিশেষ নিয়ম:</b> ${mp?mp.name:''} সব সময় নিজ শিফটের ইনচার্জ; ছুটি/বিশ্রামে থাকলে ${ac?ac.name:''} ভারপ্রাপ্ত ইনচার্জ। ধারাবাহিকতা: এ → বিশ্রাম → সি; সি-এর পরদিন এ নিষিদ্ধ।</div>`}
+function monthV(){const n=dm(),R=rows(),V=new Set(viol().map(x=>x.id+'|'+x.d)),W=warns(),DM=dupMap();
+ let h=fbar('month')+`<div class="panel flex flex-wrap items-center gap-2 noprint" style="margin-bottom:12px"><span class="chip sh-a">এ</span><span class="chip sh-b">বি</span><span class="chip sh-c">সি</span><span class="chip sh-j">জে</span><span class="chip sh-r">বিশ্রাম</span><span class="chip sh-l">ছুটি</span><span class="sub">সেলে ক্লিক করে শিফট/পোস্ট বদলান · লাল ঝলকানি = সি→এ ভুল · হলুদ দাগ = বিশ্রাম নিয়ম · বেগুনি ড্যাশ = একই পোস্টে একাধিক জন</span><span class="ml-auto"></span><select id="adsel">${Array.from({length:n},(_,i)=>`<option value="${i}"${i===D?' selected':''}>${bn(i+1)} তারিখ</option>`).join('')}</select><button class="btn pri" id="adBtn">অটো পোস্ট বণ্টন (দিন)</button><button class="btn" id="amBtn">পুরো মাস</button></div>
+ <div id="monthPrint"><div class="hidden print:block text-center font-bold">নিরাপত্তা শাখার মাসিক ডিউটি রোস্টার — ${MN[ym()[1]-1]} ${bn(ym()[0])}</div><div class="gwrap"><table class="g" id="mt"><thead><tr><th class="stk s1" rowspan="2">পিএফ নং</th><th class="stk s2" rowspan="2">নাম</th>`;
+ for(let d=0;d<n;d++)h+=`<th colspan="2" class="${d===D?'sel':''}" data-day="${d}" style="cursor:pointer${wdOf(d)===5?';color:var(--crit)':''}">${bn(d+1)}</th>`;
+ h+='</tr><tr class="r2">';for(let d=0;d<n;d++)h+=`<th colspan="2" class="${d===D?'sel':''}">${WD[wdOf(d)]}</th>`;h+='</tr></thead><tbody>';
+ fpeople().forEach(p=>{h+=`<tr class="${p.id===S.inch?'pin':''}"><td class="stk s1">${bn(p.pf)}</td><td class="stk s2">${p.id===S.inch?'⭐ ':''}${S.cmd.includes(p.id)?'<b style="color:var(--brand)">ক </b>':''}${p.name}</td>`;
+  R[p.id].forEach((c,d)=>{const[s,po]=c,k=p.id+'|'+d,bad=V.has(k),wn=W.has(k),dp=DM[d+'|'+s+'|'+po]>1,cl='sh-'+SC[s],at=`data-id="${p.id}" data-d="${d}"`;
+   const fw=s==='বিশ্রাম'||s==='ছুটি';h+=`<td class="c ${cl}${bad?' crit':''}${wn?' warn':''}" ${fw?'colspan="2" ':''}${at} data-k="s" tabindex="0" title="${bad?'ভুল: আগের দিন সি শিফট':s}">${SS[s]==='·'?'':fw?s:SS[s]}</td>`;
+   h+=DUTY.includes(s)?`<td class="c po ${cl}${bad?' crit':''}${dp?' dup':''}" ${at} data-k="p" tabindex="0" title="${po}">${shortP(po)}</td>`:(fw?'':`<td class="c po ${cl}"></td>`)});h+='</tr>'});
+ h+='</tbody><tfoot>';[['এ','এ'],['বি','বি'],['সি','সি'],['জে','জে'],['বিশ্রাম','বিশ্রাম'],['ছুটি','ছুটি']].forEach(([c,l])=>{h+=`<tr><th class="stk s1"></th><th class="stk s2">${l}</th>`;for(let d=0;d<n;d++){const k=S.people.filter(p=>R[p.id][d][0]===c).length,u=['এ','বি','সি'].includes(c)&&k<reqOf(c);h+=`<td colspan="2" class="${u?'under':''}">${bn(k)}</td>`}h+='</tr>'});
+ return h+'</tfoot></table></div></div>'}
+function openMenu(td){const id=td.dataset.id,d=+td.dataset.d,k=td.dataset.k,c=rows()[id][d];let h;
+ if(k==='s')h=`<div class="ttl">${pName(id)} · ${bn(d+1)} তারিখ — শিফট</div><div class="opts">${SHIFTS.map(x=>`<button class="opt sh-${x[3]}${x[0]===c[0]?' cur':''}" data-set="s|${x[0]}">${x[0]===''?'খালি':x[1]}</button>`).join('')}</div>`;
+ else{const own=S.posts[c[0]]||[],l=[...own,...allPosts().filter(x=>!own.includes(x))];h=`<div class="ttl">${pName(id)} · ${bn(d+1)} তারিখ — পোস্ট</div><div class="opts"><button class="opt" data-set="p|">খালি</button>${l.map(x=>`<button class="opt sh-${SC[c[0]]}${x===c[1]?' cur':''}" data-set="p|${x}">${x}</button>`).join('')}</div>`}
+ const m=$('menu');m.innerHTML=`<div class="menu" id="menuBox">${h}</div>`;menuCtx={id,d};const b=$('menuBox'),r=td.getBoundingClientRect();
+ let L=Math.min(r.left,innerWidth-b.offsetWidth-8),T=r.bottom+4;if(T+b.offsetHeight>innerHeight-8)T=Math.max(8,r.top-b.offsetHeight-4);b.style.left=Math.max(8,L)+'px';b.style.top=T+'px'}
+function closeMenu(){$('menu').innerHTML='';menuCtx=null}
+function goCell(id,d){TAB='month';D=d;render();const td=document.querySelector(`td[data-id="${id}"][data-d="${d}"][data-k="s"]`);if(td){td.scrollIntoView({block:'center',inline:'center'});td.classList.add('ping')}}
+function postNames(d,sh,po){const R=rows();return S.people.filter(p=>R[p.id][d][0]===sh&&R[p.id][d][1]===po)}
+const z2=n=>bn(pad(n))+' জন';
+function counts(d){const R=rows(),c=x=>S.people.filter(p=>R[p.id][d][0]===x).length;return{a:c('এ'),b:c('বি'),c:c('সি'),j:c('জে'),rs:c('বিশ্রাম'),lv:c('ছুটি'),sk:c('অসু:'),ab:c('অনু:'),ot:c('আউট')}}
+const dtxt=d=>`${bn(pad(d+1))}/${bn(pad(ym()[1]))}/${bn(ym()[0])}`;
+const cols=w=>`<colgroup>${w.map(x=>`<col style="width:${x}%">`).join('')}</colgroup>`;
+function sheet2(d){const R=rows(),C=counts(d),tot=C.a+C.b+C.c+C.j;
+ let h=`<table class="sh" id="t2">${cols([5.9,18.1,12.6,14.7,13,13,13,16.1])}
+ <tr class="nb"><td colspan="8" class="ttl">বসুন্ধরা ইন্ডাস্ট্রিয়াল কমপ্লেক্স লিঃ</td></tr><tr class="nb"><td colspan="8" class="ttl2">নিরাপত্তা বিভাগ</td></tr>
+ <tr class="nb"><td colspan="3"><b>ডিউটি রোস্টার</b></td><td colspan="3" class="c">বারঃ ${WD[wdOf(d)]}বার</td><td colspan="2" style="text-align:right">তারিখঃ ${dtxt(d)} ইং</td></tr>
+ <tr><th rowspan="2">ক্রমিক নং</th><th rowspan="2">নাম</th><th rowspan="2">পিএফ নং</th><th rowspan="2">পদবী</th><th colspan="3">পালা ও কর্তব্যস্থান</th><th rowspan="2">বিশ্রাম/অতিরিক্ত ঘন্টা/ছুটি/অনুপস্থিতি</th></tr><tr><th>এ</th><th>বি</th><th>সি</th></tr>`;
+ const NT={'বিশ্রাম':'বিশ্রাম','ছুটি':'ছুটি','অসু:':'অসুস্থতা কালীন ছুটি','অনু:':'অনুপস্থিত','আউট':'আউটস্টেশন'};
+ ppl().forEach((p,i)=>{const[s,po]=R[p.id][d];const c=['','',''];let note='';
+  if(DUTY.includes(s)){const tx=s==='জে'?((po==='ইনচার্জ'||p.id===S.inch)?'জেড (ইনচার্জ)':'জেড'+(po?' – '+po:'')):(po==='ইনচার্জ'?'ইনচার্জ':po||'ডিউটি');c[s==='বি'?1:s==='সি'?2:0]=tx}else note=NT[s]||'';
+  h+=`<tr><td class="c">${bn(pad(i+1))}</td><td>${pn(p)}</td><td class="c">${bn(p.pf)}</td><td>${p.desig||''}</td><td class="c">${c[0]}</td><td class="c">${c[1]}</td><td class="c">${c[2]}</td><td class="c">${note}</td></tr>`});
+ h+=`<tr><td colspan="4"><b>মোট =</b></td><td class="c">${z2(C.a)}</td><td class="c">${z2(C.b)}</td><td class="c">${z2(C.c)}</td><td></td></tr>`;
+ const all=tot+C.rs+C.lv+C.sk+C.ab+C.ot;
+ const L=[['জি-পালা',C.j],['এ-পালা',C.a],['বি-পালা',C.b],['সি-পালা',C.c],['মোট ডিউটি',tot],['আউটস্টেশন',C.ot]],Rr=[['মোট ডিউটি',tot],['বিশ্রাম',C.rs],['ছুটি',C.lv],['অসুস্থতা কালীন ছুটি',C.sk],['অনুপস্থিত',C.ab],['মোট জনবল',all]];
+ L.forEach((l,i)=>{h+=`<tr class="nb" style="height:16px"><td></td><td>${l[0]}</td><td style="text-align:right">${z2(l[1])}</td><td></td><td colspan="2" style="${i===5?'border-top:1px solid #000':''}">${Rr[i][0]}</td><td style="text-align:right;${i===5?'border-top:1px solid #000':''}">${z2(Rr[i][1])}</td><td></td></tr>`});
+ h+=`<tr class="nb" style="height:70px"><td colspan="8"></td></tr><tr class="nb"><td colspan="3" class="c"><span style="border-top:1px solid #000;padding:0 14px">কর্মকর্তা (নিরাপত্তা)</span></td><td colspan="2"></td><td colspan="3" class="c"><span style="border-top:1px solid #000;padding:0 14px">উপ-মহাব্যবস্থাপক</span><br>(মানব সম্পদ ও প্রশাসন)</td></tr></table>`;return h}
+function sheet3(d){const R=rows(),C=counts(d),mk={'জে':'g','এ':'a','বি':'b','সি':'c'},used=new Set(['ইনচার্জ']);
+ const cn=l=>l.map(pn).join('<br>');
+ const pick=k=>{const r={g:[],a:[],b:[],c:[]};ppl().forEach(p=>{const[s,po]=R[p.id][d];if(po===k&&mk[s])r[mk[s]].push(p)});used.add(k);return r};
+ const sz=r=>r.g.length+r.a.length+r.b.length+r.c.length;
+ const line=(no,locs,keys)=>{const L=keys.map(pick),g=[].concat(...L.map(x=>x.g)),tot=L.reduce((a,x)=>a+sz(x),0),n=locs.length;
+  return locs.map((loc,i)=>`<tr>${i?'':`<td rowspan="${n}" class="c">${no}</td>`}<td>${loc}</td>${i?'':`<td rowspan="${n}" class="c">${cn(g)}</td>`}<td class="c">${cn(L[i].a)}</td><td class="c">${cn(L[i].b)}</td><td class="c">${cn(L[i].c)}</td>${i?'':`<td rowspan="${n}" class="c">${tot?bn(pad(tot)):''}</td><td rowspan="${n}"></td>`}</tr>`).join('')};
+ const act=sh=>{const x=inchargeOf(sh,d);return x&&x.acting?pn(S.people.find(p=>p.id===x.id))+' (ভারপ্রাপ্ত)':''};
+ const I=pick('ইনচার্জ'),jn=(l,s)=>[cn(l),act(s)].filter(Boolean).join('<br>');
+ let h=`<table class="sh" id="t3">${cols([12.3,24.4,11.1,15.5,15.5,15.5,5,8])}
+ <tr class="nb"><td colspan="8" class="ttl">বসুন্ধরা ইন্ডাস্ট্রিয়াল কমপ্লেক্স লিমিটেড</td></tr><tr class="nb"><td colspan="8" class="c">মদনগঞ্জ, বন্দর, নারায়ণগঞ্জ।</td></tr>
+ <tr class="nb"><td colspan="5"><b>বিষয়ঃ নিরাপত্তা শাখার পোষ্ট এবং শিফট অনুযায়ী ডিউটি সম্পাদন চিত্র।</b></td><td style="text-align:right">তারিখঃ</td><td colspan="2" class="c">${dtxt(d)}</td></tr>
+ <tr><th>পোষ্ট নং</th><th>পোষ্টের অবস্থান</th><th>জেনারেল<br>শিফট</th><th>এ-শিফট<br>(০৬০০-১৪০০)</th><th>বি-শিফট<br>(১৪০০-২২০০)</th><th>সি-শিফট<br>(২২০০-০৬০০)</th><th>মোট</th><th>মন্তব্য</th></tr>
+ <tr><td class="c">ইনচার্জ</td><td>সার্বিক দায়িত্বে নিয়োজিত</td><td class="c">${cn(I.g)}</td><td class="c">${jn(I.a,'এ')}</td><td class="c">${jn(I.b,'বি')}</td><td class="c">${jn(I.c,'সি')}</td><td class="c">${sz(I)?bn(pad(sz(I))):''}</td><td></td></tr>`;
+ S.pm.forEach(([no,loc])=>{const gt=no==='০১'||no==='০২';h+=line('পোষ্ট নং-'+no,gt?['গেট কমান্ডার/প্রজেক্ট টহল',loc]:[loc],gt?[`কমান্ডার (গেট-${no})`,`${no} নং পোষ্ট`]:[`${no} নং পোষ্ট`])});
+ const T=pick('প্রজেক্ট টহল');h+=`<tr><td colspan="2"><b>প্রজেক্ট টহল</b></td><td class="c">${cn(T.g)}</td><td class="c">${cn(T.a)}</td><td class="c">${cn(T.b)}</td><td class="c">${cn(T.c)}</td><td class="c">${sz(T)?bn(pad(sz(T))):''}</td><td></td></tr>`;
+ const U={g:[],a:[],b:[],c:[]};ppl().forEach(p=>{const[s,po]=R[p.id][d];if(mk[s]&&!used.has(po))U[mk[s]].push(p.full||p.name?{...p,full:pn(p)+(po?` (${po})`:'')}:p)});
+ if(sz(U))h+=`<tr><td colspan="2">পোস্ট নির্ধারিত নয়/অন্যান্য</td><td class="c">${cn(U.g)}</td><td class="c">${cn(U.a)}</td><td class="c">${cn(U.b)}</td><td class="c">${cn(U.c)}</td><td class="c">${bn(pad(sz(U)))}</td><td></td></tr>`;
+ const tot=C.j+C.a+C.b+C.c;
+ h+=`<tr><td colspan="2"><b>মোট =</b></td>${[C.j,C.a,C.b,C.c,tot].map(x=>`<td class="c"><b>${bn(pad(x))}</b></td>`).join('')}<td></td></tr></table>`;
+ const nm=s=>S.people.filter(p=>R[p.id][d][0]===s).map(pn),ot=S.ot[isoD(d)]||{r:'',az:''},Ls=t=>t.split('\n').map(x=>x.trim()).filter(Boolean);
+ const pa=(l,n)=>[...l,...Array(Math.max(0,n-l.length)).fill('')];
+ const box=(ti,l,n=3)=>`<table class="sh lw"><tr><th>${ti}</th></tr>${pa(l,n).map(x=>`<tr><td style="height:16px">${x}</td></tr>`).join('')}<tr><td><b>মোট = ${bn(pad(l.length))} জন</b></td></tr></table>`;
+ const r=Ls(ot.r),az=Ls(ot.az),n=Math.max(3,r.length,az.length);
+ const mid=`<table class="sh lw"><tr><th colspan="2">অভারটাইম/সিপিএল ডিউটি</th></tr><tr><th>বিশ্রাম ডিউটি</th><th>এ/জেড+সি ডিউটি</th></tr>${pa(r,n).map((x,i)=>`<tr><td style="height:16px">${x}</td><td>${pa(az,n)[i]}</td></tr>`).join('')}<tr><td class="c"><b>${bn(pad(r.length))}</b></td><td class="c"><b>${bn(pad(az.length))}</b></td></tr></table>`+box('বিশ্রাম',nm('বিশ্রাম'),4);
+ const dn=tot-az.length,all=dn+C.rs+C.lv+C.sk+C.ab+C.ot;
+ const S3=[['জেড-শিফট',C.j],['এ-শিফট',C.a],['বি-শিফট',C.b],['সি-শিফট',C.c],['মোট ডিউটি',tot,1],['মোট ডিউটি জনবল',dn],['বিশ্রাম',C.rs],['ছুটি',C.lv],['অসুস্থ',C.sk],['অনুপস্থিত',C.ab],...(C.ot?[['আউটস্টেশন',C.ot]]:[]),['মোট জনবল',all,1]];
+ const rt=`<table class="sh lw">${S3.map(x=>`<tr class="nb"><td style="text-align:right;${x[2]?'border-top:1px solid #000':''}">${x[0]} :</td><td style="text-align:right;${x[2]?'border-top:1px solid #000':''}">${z2(x[1])}</td></tr>`).join('')}</table><div style="margin-top:46px;text-align:center"><span style="border-top:1px solid #000;padding:0 14px">কর্মকর্তা (নিরাপত্তা)</span></div>`;
+ return h+`<div style="display:flex;gap:10px;margin-top:12px;align-items:flex-start"><div style="flex:30">${box('ছুটি',nm('ছুটি'))+box('অসুস্থতা',nm('অসু:'))+box('অনুপস্থিত',nm('অনু:'))}</div><div style="flex:38">${mid}</div><div style="flex:32">${rt}</div></div>`}
+function dailyV(){const d=D,iso=isoD(d),ot=S.ot[iso]||{r:'',az:''};
+ return`<div class="noprint card mb-2 flex flex-wrap gap-2 items-center"><b>তারিখ:</b><input type="date" id="dsel" value="${iso}">
+ <button class="btn ${DS==='s2'?'pri':''}" data-sh="s2">২য় কাজ (জনভিত্তিক)</button><button class="btn ${DS==='s3'?'pri':''}" data-sh="s3">৩য় কাজ (পোস্টভিত্তিক)</button>
+ <button class="btn grn" id="pdfS2">🖨 ২য় কাজ প্রিন্ট/পিডিএফ</button><button class="btn grn" id="pdfS3">🖨 ৩য় কাজ প্রিন্ট/পিডিএফ</button></div>
+ <div class="noprint card mb-2 grid md:grid-cols-2 gap-2 text-sm"><div>অভারটাইম/সিপিএল — বিশ্রাম ডিউটি (প্রতি লাইনে ১ নাম)<textarea data-ot="r" rows="3" class="w-full">${ot.r}</textarea></div><div>এ/জেড+সি ডিউটি (প্রতি লাইনে ১ নাম)<textarea data-ot="az" rows="3" class="w-full">${ot.az}</textarea></div></div>
+ <div class="sheet">${DS==='s2'?sheet2(d):sheet3(d)}</div>`}
+function restV(){const R=rows(),order=[6,0,1,2,3,4,5];const wn=['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'];
+ let h=fbar('rest')+'<div class="grid grid-cols-2 md:grid-cols-4 gap-2 my-2">'+order.map(w=>{const l=S.people.filter(p=>S.rest[p.id]===w);return`<div class="card"><b>${wn[w]}বার</b> <span class="badge" style="background:#6b7280">${bn(l.length)}</span><ol class="pl-4 text-sm list-decimal">${l.map(p=>`<li>${p.name}</li>`).join('')}</ol></div>`}).join('')+'</div>';
+ h+=`<div class="card"><b>মাসের প্রকৃত বিশ্রাম দিন (রোস্টার থেকে লাইভ)</b><table class="pt mt-1"><tr><th>নাম</th><th>নির্ধারিত বার</th><th>বিশ্রামের তারিখ</th><th>সংখ্যা</th></tr>${fpeople().filter(p=>F.wd===''||S.rest[p.id]===+F.wd).map(p=>{const ds=R[p.id].map((c,i)=>c[0]==='বিশ্রাম'?i+1:0).filter(Boolean);return`<tr><td>${p.name}</td><td><select data-rest="${p.id}">${wn.map((x,i)=>`<option value="${i}"${S.rest[p.id]===i?' selected':''}>${x}</option>`).join('')}</select></td><td>${ds.map(bn).join(', ')}</td><td>${bn(ds.length)}</td></tr>`}).join('')}</table></div>`;return h}
+function leaveList(){const E=S.leaves.map(l=>({...l}));
+ for(const[mk,Rm]of Object.entries(S.months)){const[y,mo]=mk.split('-').map(Number);S.people.forEach(p=>{const r=Rm[p.id];if(!r)return;let a=null;r.forEach((c,i)=>{const on=c[0]==='ছুটি';if(on&&a===null)a=i;if(a!==null&&(!on||i===r.length-1)){const e=on?i:i-1,f=`${y}-${pad(mo)}-${pad(a+1)}`,t=`${y}-${pad(mo)}-${pad(e+1)}`;if(!E.some(x=>x.id===p.id&&x.from<=t&&x.to>=f))E.push({id:p.id,from:f,to:t});a=null}})})}
+ const today=new Date();today.setHours(0,0,0,0);const T=s=>new Date(s+'T00:00:00');
+ return S.people.map(p=>{const h=E.filter(x=>x.id===p.id).sort((a,b)=>b.to.localeCompare(a.to));const last=h[0];return{id:p.id,h,last,ago:last?Math.round((today-T(last.to))/864e5):null,tot:last?Math.round((T(last.to)-T(last.from))/864e5)+1:0}}).sort((a,b)=>{if(a.id===S.inch)return-1;if(b.id===S.inch)return 1;const ka=a.last&&a.ago>=0?a.ago:-1,kb=b.last&&b.ago>=0?b.ago:-1;return kb-ka})}
+function sortL(L){const m=F.ls;if(!m)return L;const pin=x=>x.id===S.inch?0:1,nm=x=>pName(x.id),ag=x=>x.last&&x.ago>=0?x.ago:1e9;
+ return[...L].sort((a,b)=>pin(a)-pin(b)||(m==='asc'?ag(a)-ag(b):m==='az'?nm(a).localeCompare(nm(b),'bn'):m==='za'?nm(b).localeCompare(nm(a),'bn'):pPf(a.id).localeCompare(pPf(b.id),undefined,{numeric:true})))}
+function leaveV(){const L=sortL(leaveList());const fm=s=>{const[y,m,d]=s.split('-');return bn(d+'/'+m+'/'+y)};
+ return`${fbar('leave')}<div class="card mt-2"><div class="flex flex-wrap gap-2 items-center mb-2"><b>নতুন ছুটি যোগ:</b><select id="lvp">${S.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select> হতে <input type="date" id="lvf"> পর্যন্ত <input type="date" id="lvt"><button class="btn pri" id="lvadd">যোগ করুন</button></div>
+ <table class="pt"><tr><th>#</th><th>নাম, পিএফ</th><th>সাপ্তাহিক বিশ্রাম</th><th>সর্বশেষ ছুটি (হইতে – পর্যন্ত)</th><th>মোট দিন</th><th>ছুটি শেষ হয়েছে (দিন আগে)</th><th>ইতিহাস</th></tr>
+ ${L.filter(x=>fmatch(x.id)&&(!F.min||(x.last&&x.ago>=+F.min))||x.id===S.inch).map((x,i)=>`<tr><td>${bn(i+1)}</td><td>${pName(x.id)}, (${bn(pPf(x.id))})</td><td>${['রবি','সোম','মঙ্গল','বুধ','বৃহঃ','শুক্র','শনি'][S.rest[x.id]]||'—'}বার</td><td>${x.last?fm(x.last.from)+' – '+fm(x.last.to):'—'}</td><td>${x.last?bn(x.tot):'—'}</td><td>${x.last?(x.ago>=0?`<b>${bn(x.ago)}</b>`:'চলমান/আগামী'):'তথ্য নেই'}</td><td><details><summary>${bn(x.h.length)} বার</summary>${x.h.map(e=>`<div>${fm(e.from)} – ${fm(e.to)} <button class="btn" data-dl="${x.id}|${e.from}|${e.to}">✕</button></div>`).join('')}</details></td></tr>`).join('')}</table></div>`}
+function mgmtV(){const opt=(v)=>S.people.map(p=>`<option value="${p.id}"${p.id===v?' selected':''}>${p.name}</option>`).join('');
+ return`<div class="grid lg:grid-cols-2 gap-2 mt-2"><div class="card"><b>কর্মী ও কমান্ডার তালিকা</b>${fbar('mgmt')}<div class="mwrap" style="max-height:55vh"><table class="pt"><tr><th>পিএফ</th><th>নাম</th><th>প্রিন্ট নাম</th><th>পদবী</th><th>কমান্ডার</th><th></th></tr>${fpeople().map(p=>`<tr><td><input size="9" data-pf="${p.id}" value="${p.pf}"></td><td><input size="14" data-nm="${p.id}" value="${p.name}"></td><td><input size="16" data-fn="${p.id}" value="${pn(p)}"></td><td><input size="14" data-dsg="${p.id}" value="${p.desig||''}"></td><td><input type="checkbox" data-cm="${p.id}"${S.cmd.includes(p.id)?' checked':''}></td><td><button class="btn red sm" data-rm="${p.id}">🗑 মুছুন</button></td></tr>`).join('')}</table></div>
+ <div class="flex flex-wrap gap-1 mt-2"><input id="npf" placeholder="পিএফ নং" size="9"><input id="nnm" placeholder="নাম" size="16"><input id="ndg" list="dgl" placeholder="পদবী" size="16"><datalist id="dgl">${[...new Set(S.people.map(p=>p.desig).filter(Boolean))].map(x=>`<option value="${x}">`).join('')}</datalist><button class="btn pri" id="addp">➕ জনবল যোগ</button></div></div>
+ <div class="card"><b>প্রশাসনিক দায়িত্ব</b><div class="mt-1">সার্বিক নিরাপত্তা ইনচার্জ: <select id="sinch">${opt(S.inch)}</select></div><div class="mt-1">ভারপ্রাপ্ত ইনচার্জ: <select id="sact">${opt(S.acting)}</select></div>
+ <b class="block mt-3">শিফটভিত্তিক পোস্ট (প্রতি লাইনে ১টি, ক্রমই অবস্থান)</b><div class="grid grid-cols-2 gap-2 mt-1">${['এ','বি','সি','জে'].map(s=>`<div>${s}-শিফট<textarea data-posts="${s}" rows="9" class="w-full text-sm">${(S.posts[s]||[]).join('\n')}</textarea></div>`).join('')}</div>
+ <b class="block mt-3">পোস্ট নং ও অবস্থান (প্রতি লাইনে: নং|অবস্থান) — ৩য় কাজ শিটে ব্যবহৃত</b><textarea data-pm="1" rows="8" class="w-full text-sm">${S.pm.map(x=>x.join('|')).join('\n')}</textarea><div class="mt-3"><button class="btn red" id="reset">⟲ মূল ফাইলের ডেটায় রিসেট</button></div></div></div>`}
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{const t=e.target;
+ if(t.dataset.t){TAB=t.dataset.t;render()}
+ if(t.dataset.go){const[id,d]=t.dataset.go.split('|');TAB='month';render();const s=document.querySelector(`[data-id="${id}"][data-d="${d}"]`);if(s)s.closest('td').scrollIntoView({block:'center',inline:'center'})}
+ if(t.dataset.rm){const id=t.dataset.rm;if(id===S.inch||id===S.acting){toast('ইনচার্জ/ভারপ্রাপ্ত ইনচার্জকে মুছতে হলে আগে ডান পাশে অন্য কাউকে নির্বাচন করুন');return}
+ if(confirm(pName(id)+' কে সম্পূর্ণ মুছে ফেলবেন? রোস্টার, ছুটি ও বিশ্রামের তথ্যও মুছে যাবে।')){S.people=S.people.filter(p=>p.id!==id);S.cmd=S.cmd.filter(x=>x!==id);S.leaves=S.leaves.filter(l=>l.id!==id);delete S.rest[id];Object.values(S.months).forEach(m=>{delete m[id]});touch()}}
+ if(t.dataset.dl){const[id,f,to]=t.dataset.dl.split('|');S.leaves=S.leaves.filter(x=>!(x.id===id&&x.from===f&&x.to===to));touch()}
+ switch(t.id){case'saveBtn':save(true);break;case'pm':case'nm':{let[y,m]=ym();m+=t.id==='nm'?1:-1;if(m<1){m=12;y--}if(m>12){m=1;y++}M=y+'-'+pad(m);D=null;render();break}
+ case'xl':exportX();break;case'pdfM':doPrint('month');break;case'pdfS2':doPrint('s2');break;case'pdfS3':doPrint('s3');break;
+ case'adBtn':{const d=+$('adsel').value;if(confirm(bn(d+1)+' তারিখের পোস্ট নতুন করে বণ্টন হবে। চালিয়ে যাবেন?')){autoDay(d);touch()}break}
+ case'amBtn':if(confirm('পুরো মাসের পোস্ট নতুন করে বণ্টন হবে। চালিয়ে যাবেন?')){for(let d=0;d<dm();d++)autoDay(d);touch()}break;
+ case'lvadd':{const f=$('lvf').value,to=$('lvt').value;if(f&&to&&f<=to){S.leaves.push({id:$('lvp').value,from:f,to});touch()}else toast('তারিখ সঠিক দিন');break}
+ case'addp':{const pf=$('npf').value.trim().replace(/[০-৯]/g,c=>BN.indexOf(c)),nm=$('nnm').value.trim();if(pf&&nm&&!S.people.some(p=>p.id===pf)){S.people.push({id:pf,pf,name:nm,full:nm,desig:$('ndg').value.trim()||'নিরাপত্তা প্রহরী'});S.rest[pf]=0;touch()}else toast('পিএফ ও নাম দিন (পিএফ অনন্য হতে হবে)');break}
+ case'reset':if(confirm('সব পরিবর্তন মুছে মূল ডেটা ফিরবে। নিশ্চিত?')){S=JSON.parse(JSON.stringify(SEED));touch()}break}});
+document.addEventListener('change',e=>{const t=e.target;
+ if(t.dataset.k){const c=rows()[t.dataset.id][+t.dataset.d];if(t.dataset.k==='s'){c[0]=t.value;if(!DUTY.includes(t.value))c[1]=''}else c[1]=t.value;touch()}
+ else if(t.id==='dsel'){const d=new Date(t.value+'T00:00:00');if(!isNaN(d)){M=d.getFullYear()+'-'+pad(d.getMonth()+1);D=d.getDate()-1;render()}}
+ else if(t.dataset.rest){S.rest[t.dataset.rest]=+t.value;touch()}
+ else if(t.dataset.pf){const p=S.people.find(x=>x.id===t.dataset.pf);p.pf=t.value.replace(/[০-৯]/g,c=>BN.indexOf(c));touch()}
+ else if(t.dataset.nm){S.people.find(x=>x.id===t.dataset.nm).name=t.value;touch()}
+ else if(t.dataset.cm){S.cmd=t.checked?[...S.cmd,t.dataset.cm]:S.cmd.filter(x=>x!==t.dataset.cm);touch()}
+ else if(t.dataset.posts){S.posts[t.dataset.posts]=t.value.split('\n').map(x=>x.trim()).filter(Boolean);touch()}
+ else if(t.id==='sinch'){S.inch=t.value;touch()}else if(t.id==='sact'){S.acting=t.value;touch()}});
+function doPrint(mode){if(mode==='month'){if(TAB!=='month'){TAB='month';render()}}else{DS=mode;TAB='daily';render()}
+ $('pg').textContent=`@page{size:A4 ${mode==='month'?'landscape':'portrait'};margin:8mm}`;document.body.className=mode==='month'?'pm-month':'pm-s';const rt=document.documentElement,oth=rt.dataset.theme;rt.dataset.theme='light';
+ const el=mode==='month'?$('monthPrint'):document.querySelector('.sheet');el.style.zoom=1;
+ if(mode==='month'){const w=$('mt').scrollWidth,h=$('mt').scrollHeight+40;el.style.zoom=Math.min(1,1060/w,700/h)}else el.style.zoom=Math.min(1,960/el.scrollHeight);
+ setTimeout(()=>{window.print();el.style.zoom='';document.body.className='';if(oth)rt.dataset.theme=oth;else delete rt.dataset.theme},100)}
+function exportX(){const n=dm(),R=rows(),[y,m]=ym();const A=[],mg=[];const W=2+2*n;
+ A.push(['নিরাপত্তা শাখার মাসিক ডিউটি রোস্টার — '+MN[m-1]+' '+y]);mg.push({s:{r:0,c:0},e:{r:0,c:W-1}});
+ const h1=['পিএফ নং','নাম'],h2=['',''];for(let d=0;d<n;d++){h1.push(WD[wdOf(d)],'');h2.push(`${d+1}/${m}/${y}`,'')}A.push(h1,h2);
+ [1,2].forEach(r=>{for(let d=0;d<n;d++)mg.push({s:{r,c:2+2*d},e:{r,c:3+2*d}})});mg.push({s:{r:1,c:0},e:{r:2,c:0}},{s:{r:1,c:1},e:{r:2,c:1}});
+ S.people.forEach(p=>{const r=A.length,a=[p.pf,p.name],b=['',''];R[p.id].forEach(c=>{a.push(c[0],'');b.push(c[1],'')});A.push(a,b);
+  mg.push({s:{r,c:0},e:{r:r+1,c:0}},{s:{r,c:1},e:{r:r+1,c:1}});for(let d=0;d<n;d++)mg.push({s:{r,c:2+2*d},e:{r,c:3+2*d}},{s:{r:r+1,c:2+2*d},e:{r:r+1,c:3+2*d}})});
+ ['এ','বি','সি','জে','বিশ্রাম','ছুটি'].forEach(s=>{const r=A.length,a=['',s+' মোট'];for(let d=0;d<n;d++){a.push(S.people.filter(p=>R[p.id][d][0]===s).length,'');mg.push({s:{r,c:2+2*d},e:{r,c:3+2*d}})}A.push(a)});
+ const ws=XLSX.utils.aoa_to_sheet(A);ws['!merges']=mg;ws['!cols']=[{wch:11},{wch:20},...Array(2*n).fill({wch:5})];
+ const o={raw:true},a=document.createElement('div');a.innerHTML=sheet2(D);const b=document.createElement('div');b.innerHTML=sheet3(D);
+ const w2=XLSX.utils.table_to_sheet(a.querySelector('table'),o),tb=[...b.querySelectorAll('table')],w3=XLSX.utils.table_to_sheet(tb[0],o);tb.slice(1).forEach(x=>XLSX.utils.sheet_add_dom(w3,x,{origin:-1,raw:true}));
+ w2['!cols']=[5.9,18.1,12.6,14.7,13,13,13,16.1].map(x=>({wch:x*1.3}));w3['!cols']=[12.3,24.4,11.1,15.5,15.5,15.5,5,8].map(x=>({wch:x*1.3}));
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'মাসিক রোস্টার');XLSX.utils.book_append_sheet(wb,w2,'২য় কাজ (প্রিন্ট)');XLSX.utils.book_append_sheet(wb,w3,'৩য় কাজ (প্রিন্ট)');
+ XLSX.writeFile(wb,`রোস্টার_${M}.xlsx`)}
+document.addEventListener('click',e=>{const t=e.target;if(t.dataset.sh){DS=t.dataset.sh;render()}if(t.dataset.fclr){Object.assign(F,{q:'',sh:'',cmd:false,bad:false,wd:'',min:'',ls:''});render()}});
+document.addEventListener('change',e=>{const t=e.target,k=t.dataset;
+ if(k.f){F[k.f]=t.type==='checkbox'?t.checked:t.value;render()}
+ else if(k.ot){const i=isoD(D);S.ot[i]=S.ot[i]||{r:'',az:''};S.ot[i][k.ot]=t.value;touch()}
+ else if(k.fn){S.people.find(x=>x.id===k.fn).full=t.value;touch()}
+ else if(k.dsg){S.people.find(x=>x.id===k.dsg).desig=t.value;touch()}
+ else if(k.pm){S.pm=t.value.split('\n').map(x=>x.split('|').map(y=>y.trim())).filter(x=>x[0]&&x[1]);touch()}});
+document.addEventListener('click',e=>{const t=e.target,td=t.closest&&t.closest('td.c[data-k]');
+ if(td){openMenu(td);return}
+ if(t.dataset.set){const[k,v]=t.dataset.set.split('|');if(menuCtx){const c=rows()[menuCtx.id][menuCtx.d];if(k==='s'){c[0]=v;if(!DUTY.includes(v))c[1]=''}else c[1]=v}closeMenu();touch();return}
+ if(!(t.closest&&t.closest('.menu')))closeMenu();
+ if(t.dataset.day){D=+t.dataset.day;render()}
+ if(t.dataset.dstep){D=Math.max(0,Math.min(dm()-1,D+ +t.dataset.dstep));render()}
+ if(t.dataset.af){AF=t.dataset.af;render()}
+ if(t.dataset.ign){S.ign=S.ign||[];if(!S.ign.includes(t.dataset.ign))S.ign.push(t.dataset.ign);touch()}
+ if(t.dataset.ignclr){S.ign=[];touch()}
+ if(t.dataset.jump){const[id,d]=t.dataset.jump.split('|');goCell(id,+d)}
+ if(t.dataset.jf){const v=alerts().find(a=>a.lv==='crit');if(v)goCell(v.id,v.d)}
+ if(t.id==='thm'){const r=document.documentElement,dk=r.dataset.theme==='dark'||(!r.dataset.theme&&window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=dk?'light':'dark'}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save(true)}
+ if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('td.c[data-k]')){e.preventDefault();openMenu(e.target)}});
+window.addEventListener('scroll',()=>{if(menuCtx)closeMenu()},true);
+/* ===================== ক্লাউড সিঙ্ক (Firebase Realtime Database — REST, কোনো লাইব্রেরি লাগে না) ===================== */
+const CLOUD_DEFAULT={url:'',key:''}; /* চাইলে এখানে আপনার Database URL ও কী বসিয়ে রাখতে পারেন */
+const CK='bic_cloud_cfg',PK='bic_cloud_pending';
+let CFG={};try{CFG=JSON.parse(localStorage.getItem(CK))||{}}catch(e){}
+const b64u=x=>btoa(x).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64u=x=>{x=x.replace(/-/g,'+').replace(/_/g,'/');while(x.length%4)x+='=';return atob(x)};
+function parseShare(str){try{str=String(str).trim();const m=str.match(/[?#&]c=([^&#\s]+)/);let c=m?m[1]:str;try{c=decodeURIComponent(c)}catch(e){}const o=JSON.parse(unb64u(c.replace(/\s/g,'')));if(o.u&&o.k)return{url:o.u,key:o.k}}catch(e){}return null}
+let JOINED=false;
+try{const q=location.search+location.hash;if(/[?#&]c=/.test(q)){const j=parseShare(q);if(j){CFG=j;localStorage.setItem(CK,JSON.stringify(CFG));JOINED=true}try{history.replaceState(null,'',location.pathname)}catch(e){}}}catch(e){}
+if(!CFG.url&&CLOUD_DEFAULT.url)CFG=Object.assign({},CLOUD_DEFAULT);
+const cloudOn=()=>!!(CFG.url&&CFG.key);
+let cs={state:cloudOn()?'connecting':'off',es:null,sent:{},pending:new Set(),fly:new Set(),timer:null,ready:false,defer:false};
+try{(JSON.parse(localStorage.getItem(PK))||[]).forEach(x=>cs.pending.add(x))}catch(e){}
+const savePend=()=>{try{localStorage.setItem(PK,JSON.stringify([...cs.pending]))}catch(e){}};
+const cbase=()=>CFG.url.replace(/\/+$/,'')+'/rosters/'+encodeURIComponent(CFG.key);
+const CL={off:'ক্লাউড সিঙ্ক বন্ধ',connecting:'সংযোগ হচ্ছে…',syncing:'সিঙ্ক হচ্ছে…',ok:'ক্লাউডে সিঙ্কড ✓',offline:'অফলাইন',err:'সিঙ্ক ত্রুটি'};
+function cloudLabel(){return '☁ '+CL[cs.state]}
+function setCS(s){cs.state=s;const b=$('cloudBtn');if(b){b.textContent=cloudLabel();b.className='btn '+(s==='ok'?'cs-ok':s==='err'||s==='offline'?'cs-err':'')}}
+function chunks(){const c={},meta=Object.assign({},S);delete meta.months;c.meta=JSON.stringify(meta);Object.keys(S.months).forEach(k=>c['m:'+k]=JSON.stringify(S.months[k]));return c}
+function queueCloud(){if(!cloudOn()||!cs.ready)return;clearTimeout(cs.timer);cs.timer=setTimeout(()=>pushCloud(),700)}
+async function putChunk(n,v){cs.pending.add(n);cs.fly.add(n);savePend();let r;try{r=await fetch(cbase()+'/'+(n==='meta'?'meta':'months/'+n.slice(2))+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)})}finally{cs.fly.delete(n)}if(!r.ok)throw new Error('HTTP '+r.status);cs.sent[n]=v;cs.pending.delete(n);savePend();if(chunks()[n]!==v)queueCloud()}
+async function pushCloud(force){if(!cloudOn())return;const c=chunks(),jobs=[];for(const[n,v]of Object.entries(c))if(!cs.fly.has(n)&&(force||cs.sent[n]!==v))jobs.push(putChunk(n,v));if(!jobs.length)return;setCS('syncing');try{await Promise.all(jobs);setCS('ok')}catch(e){setCS(navigator.onLine===false?'offline':'err')}}
+function applyRemote(path,data){const parts=path.split('/').filter(Boolean);let changed=false;
+ const setChunk=(n,str)=>{if(typeof str!=='string'||cs.pending.has(n))return;cs.sent[n]=str;if(chunks()[n]===str)return;try{const o=JSON.parse(str);if(n==='meta'){const mo=S.months;S=Object.assign({},o,{months:mo})}else S.months[n.slice(2)]=o;changed=true}catch(e){}};
+ if(!parts.length){if(data&&typeof data==='object'){if(data.meta!==undefined)setChunk('meta',data.meta);Object.entries(data.months||{}).forEach(([k,v])=>setChunk('m:'+k,v))}}
+ else if(parts[0]==='meta')setChunk('meta',data);
+ else if(parts[0]==='months'){if(parts.length===1&&data&&typeof data==='object')Object.entries(data).forEach(([k,v])=>setChunk('m:'+k,v));else if(parts.length===2)setChunk('m:'+parts[1],data)}
+ if(changed){migrate();try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))cs.defer=true;else render();toast('☁ অন্য ডিভাইস থেকে আপডেট এসেছে')}}
+function disconnectCloud(){if(cs.es){cs.es.close();cs.es=null}}
+function connectCloud(){disconnectCloud();cs.ready=false;if(!cloudOn()){setCS('off');return}setCS('connecting');
+ try{const es=new EventSource(cbase()+'.json');cs.es=es;
+  es.addEventListener('put',e=>{const m=JSON.parse(e.data);if(m.path==='/'&&m.data===null){cs.ready=true;pushCloud(true)}else{const first=!cs.ready;applyRemote(m.path,m.data);cs.ready=true;setCS('ok');if(first)pushCloud()}});
+  es.addEventListener('patch',e=>{const m=JSON.parse(e.data);if(m.path==='/'&&m.data)Object.entries(m.data).forEach(([k,v])=>applyRemote('/'+k,v));else applyRemote(m.path,m.data)});
+  es.addEventListener('cancel',()=>setCS('err'));es.addEventListener('auth_revoked',()=>setCS('err'));
+  es.onopen=()=>{if(cs.state!=='syncing')setCS('ok')};es.onerror=()=>setCS(navigator.onLine===false?'offline':'connecting')}catch(e){setCS('err')}}
+window.addEventListener('online',()=>{if(cloudOn()){connectCloud()}});
+window.addEventListener('offline',()=>{if(cloudOn())setCS('offline')});
+document.addEventListener('focusout',()=>{if(cs.defer){cs.defer=false;setTimeout(render,60)}});
+function openDlg(){const d=$('dlg');d.hidden=false;d.innerHTML=`<div class="dlgbox"><h2>☁ ক্লাউড সিঙ্ক সেটিংস (Firebase)</h2><p class="sub">সব ডিভাইসে একই Database URL ও ওয়ার্কস্পেস কী দিলে সবখানে একই রোস্টার দেখাবে। অবস্থা: <b>${CL[cs.state]}</b></p>
+ <label class="lbl">Firebase Database URL</label><input id="cUrl" class="w-full" placeholder="https://আপনার-প্রজেক্ট-default-rtdb.firebaseio.com" value="${CFG.url||''}">
+ <label class="lbl mt-2">ওয়ার্কস্পেস কী (পাসওয়ার্ডের মতো গোপন রাখুন)</label><div class="flex gap-1"><input id="cKey" class="w-full" value="${CFG.key||''}"><button class="btn" id="cGen">নতুন কী</button></div>
+ <div class="flex flex-wrap gap-2 mt-3"><button class="btn pri" id="cSave">সংযুক্ত করুন</button><button class="btn" id="cOff">বিচ্ছিন্ন করুন</button><button class="btn" id="cLink">🔗 অন্য ডিভাইসের লিংক কপি</button></div>
+ <label class="lbl mt-3">অন্য ডিভাইসে যুক্ত করতে: সংযোগ কোড বা লিংক পেস্ট করুন</label><div class="flex gap-1"><input id="cPaste" class="w-full" placeholder="কোড/লিংক এখানে পেস্ট করুন"><button class="btn pri" id="cJoin">যুক্ত করুন</button></div>
+ <label class="lbl mt-2">এই ডিভাইসের সংযোগ কোড (অন্য ডিভাইসে পেস্ট করার জন্য)</label><div class="flex gap-1"><input id="cCode" class="w-full" readonly value="${cloudOn()?b64u(JSON.stringify({u:CFG.url,k:CFG.key})):''}"><button class="btn" id="cCopyCode">কোড কপি</button></div>
+ <div class="flex flex-wrap gap-2 mt-2"><button class="btn" id="cUp">⬆ এই ডিভাইসের ডেটা ক্লাউডে ওভাররাইট</button><button class="btn" id="cDown">⬇ ক্লাউড থেকে ডেটা নামান</button></div>
+ <p class="sub mt-2">নতুন ডিভাইসে প্রথমবার সংযুক্ত করলে ক্লাউডে ডেটা থাকলে সেটাই লোড হয়; ক্লাউড ফাঁকা থাকলে এই ডিভাইসের ডেটা আপলোড হয়।</p><div class="mt-3 text-right"><button class="btn" id="cClose">বন্ধ</button></div></div>`}
+const closeDlg=()=>{$('dlg').hidden=true;$('dlg').innerHTML=''};
+document.addEventListener('click',async e=>{const t=e.target;
+ if(t.id==='cloudBtn')openDlg();else if(t.id==='dlg'||t.id==='cClose')closeDlg();
+ else if(t.id==='cGen'){const a=new Uint8Array(18);crypto.getRandomValues(a);$('cKey').value=[...a].map(x=>'abcdefghijkmnpqrstuvwxyz23456789'[x%32]).join('')}
+ else if(t.id==='cSave'){const u=$('cUrl').value.trim(),k=$('cKey').value.trim();if(!/^https:\/\/.+/.test(u)||k.length<8){toast('সঠিক URL এবং কমপক্ষে ৮ অক্ষরের কী দিন');return}CFG={url:u,key:k};try{localStorage.setItem(CK,JSON.stringify(CFG))}catch(x){}cs.sent={};connectCloud();closeDlg()}
+ else if(t.id==='cJoin'){const j=parseShare($('cPaste').value);if(!j){toast('কোডটি বোঝা যায়নি — পুরো কোড/লিংক পেস্ট করুন');return}CFG=j;try{localStorage.setItem(CK,JSON.stringify(CFG))}catch(x){}cs.sent={};connectCloud();closeDlg();toast('☁ সংযুক্ত হচ্ছে…')}
+ else if(t.id==='cCopyCode'){const v=$('cCode').value;if(!v){toast('আগে সংযুক্ত করুন');return}try{await navigator.clipboard.writeText(v);toast('কোড কপি হয়েছে')}catch(x){prompt('কোডটি কপি করুন',v)}}
+ else if(t.id==='cOff'){CFG={};try{localStorage.removeItem(CK)}catch(x){}disconnectCloud();setCS('off');closeDlg()}
+ else if(t.id==='cLink'){if(!cloudOn()){toast('আগে সংযুক্ত করুন');return}const l=location.origin+location.pathname+'?c='+b64u(JSON.stringify({u:CFG.url,k:CFG.key}));try{await navigator.clipboard.writeText(l);toast('লিংক কপি হয়েছে')}catch(x){prompt('লিংকটি কপি করুন',l)}}
+ else if(t.id==='cUp'){if(cloudOn()&&confirm('ক্লাউডের ডেটা মুছে এই ডিভাইসের ডেটা দিয়ে ওভাররাইট হবে। নিশ্চিত?')){cs.ready=true;await pushCloud(true);closeDlg()}}
+ else if(t.id==='cDown'){if(cloudOn()&&confirm('এই ডিভাইসের ডেটা মুছে ক্লাউডের ডেটা বসবে। নিশ্চিত?')){try{const r=await fetch(cbase()+'.json'),d=await r.json();if(!d){toast('ক্লাউডে কোনো ডেটা নেই');return}cs.pending.clear();savePend();cs.sent={};applyRemote('/',d);render();closeDlg()}catch(x){toast('ডাউনলোড ব্যর্থ')}}}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('dlg').hidden)closeDlg()});
+connectCloud();
+render();
+if(JOINED)setTimeout(()=>toast('☁ সংযোগ সেটিংস পাওয়া গেছে — সিঙ্ক শুরু হচ্ছে'),700);
+</script>
+</body>
+</html>
